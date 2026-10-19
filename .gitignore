@@ -1,0 +1,21 @@
+# Gizli ayarlar
+.env
+.env.*
+!.env.example
+
+# Python geçici dosyaları
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Sanal ortam (virtual environment)
+.venv/
+venv/
+env/
