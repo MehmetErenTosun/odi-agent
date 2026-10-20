@@ -43,7 +43,7 @@ Durum kodları ([C]): `D` Done, `R` Running, `W` Waiting, `E` Error, `M` Warning
 | NNO | doğrulanmadı (topluluk kaynağı) | Model bilgisi |
 | STEP_NAME | doğrulanmadı (topluluk kaynağı) | Model bilgisi |
 
-**Uyarı:** Bu tablonun ODI 12c'de hâlâ kullanıldığı şüpheli. [G]'deki 12c sorguları adım adını `SNP_SB_STEP.STEP_NAME`'den alıyor ("SB" büyük ihtimalle session blueprint). Bir topluluk yorumunda da SNP_SESS_STEP kullanan sorgunun 12c'de çalışmadığı söyleniyor. Doğrulanınca bu tablo `SNP_SB_STEP` ile değiştirilebilir.
+**Uyarı:** Bu tablo ODI 12c'de olmayabilir. Ayrıntılar "Bilinen belirsizlikler" bölümünde (madde 1).
 
 ## SNP_STEP_LOG
 
@@ -63,6 +63,28 @@ Durum kodları ([C]): `D` Done, `R` Running, `W` Waiting, `E` Error, `M` Warning
 | NB_UPD | doğrulanmadı (topluluk kaynağı) | [G], yorum satırında; [W]'de task log için |
 | NB_DEL | doğrulanmadı (topluluk kaynağı) | [G], yorum satırında; [W]'de task log için |
 | NB_ERR | doğrulanmadı (topluluk kaynağı) | [G] sorgularında |
+
+## Bilinen belirsizlikler
+
+Şema bu belirsizlikler çözülene kadar **değiştirilmeyecek**. Doğrulamayı proje sahibi yapacak.
+
+1. **`SNP_SESS_STEP` ODI 12c'de olmayabilir.**
+   - Bir topluluk yorumunda, bu tabloyu kullanan bir sorgunun 12c'de çalışmadığı söyleniyor. Yorum, [D]'yi bulan aramanın sonuçlarında geçiyordu; yorumun kaynak sayfası ayrıca okunmadı.
+   - [G]'deki 12c sorgularında bu tablo hiç geçmiyor.
+2. **Alternatif: `SNP_SB_STEP`.**
+   - [G]'deki 12c sorguları adım adını `SNP_SB_STEP.STEP_NAME`'den alıyor ve `SNP_SB_TASK` ile join ediyor.
+   - "SB" büyük ihtimalle "session blueprint" anlamına geliyor (doğrulanmadı).
+   - Bu tablonun kolonları ve `SNP_STEP_LOG` ile nasıl bağlandığı (`SESS_NO`/`NNO` mu, başka bir anahtar mı) bilinmiyor.
+3. **Hata metni `ERROR_MESSAGE` kolonundan okunuyor olabilir.**
+   - [G], adım seviyesindeki hata metnini `SNP_STEP_LOG.ERROR_MESSAGE`'dan okuyor. Demo'daki `STEP_MESS` hiçbir kaynakta görülmedi.
+   - [W]'de task log için hem `TASK_MESS` hem `ERROR_MESSAGE` var. Adım logunda da ikisinin birlikte olması mümkün; hangisinin tam metni tuttuğu bilinmiyor.
+4. **Hiçbir kaynakta görülmeyen kolonlar.** Bunlar yalnızca model bilgisine dayanıyor:
+   - `SNP_SESSION`: `SESS_RC`, `SESS_MESS`, `AGENT_NAME`
+   - `SNP_STEP_LOG`: `STEP_RC`, `STEP_MESS`
+   - `SNP_SESS_STEP`: `SESS_NO`, `NNO`, `STEP_NAME`. Tablonun kendisi de belirsiz, bkz. madde 1.
+5. **Başka tablolarda görülen kolonlar.**
+   - `SESS_DUR` ve `CONTEXT_CODE`, [G]'de yalnızca `SNP_SCEN_REPORT` tablosunda görüldü.
+   - `SNP_SESSION`'da olup olmadıkları bilinmiyor.
 
 ## İleride
 
