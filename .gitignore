@@ -15,6 +15,9 @@ htmlcov/
 build/
 dist/
 
+# Üretilen demo veritabanı
+data/*.db
+
 # Sanal ortam (virtual environment)
 .venv/
 venv/

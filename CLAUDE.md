@@ -22,6 +22,8 @@ CV ve iş görüşmesi için çalışan bir demo. Kapsam küçük tutulacak.
 
 - Gerçek bir kuruma ait hiçbir kod, şema veya veri kullanılmayacak; tüm örnek veriler uydurmadır.
 - API anahtarları koda yazılmaz, `.env` dosyasında tutulur.
+- Tablo ve kolon adlarında Türkçe karakter kullanılmaz (ör. `COZUM_NOTU`, `ÇÖZÜM_NOTU` değil).
+- ODI repository tablo/kolon adları resmi kaynakla doğrulanmadıysa uydurulmaz; `docs/KOLON_KAYNAKLARI.md`'de "doğrulanmadı" olarak işaretlenir.
 
 ## Dil ve İletişim
 
