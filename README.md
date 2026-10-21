@@ -1,6 +1,34 @@
+# ODI Error Triage Agent (Demo)
+
+When an overnight ETL load fails in an Oracle Data Integrator (ODI) 12c data warehouse, someone on call has to answer three questions fast: *Is it safe to just restart? Has this happened before, and how was it fixed? What is the database actually doing right now?* This project is a working demo of an agent that helps answer those questions, on synthetic data.
+
+## What it does
+
+- **Classifies every failed step** as 🔴 RED (do not touch), 🟠 ORANGE (needs human approval) or 🟢 GREEN (safe to retry, with a limited number of retries). Rules live in a config file (`rules.json`), not in code, and every result comes with the chain of rules that produced it.
+- **Never lets a risky step look safe.** Incremental-append steps are capped at ORANGE because a blind restart can load the same data twice. The cap is enforced in code: if someone edits the config to mark them GREEN, the config is rejected at load time.
+- **Finds the real error.** Oracle often wraps the root cause in a generic error (for example `ORA-12801`, parallel query failed). The agent unwraps it, skips noise lines such as `ORA-06512`, and classifies by the underlying cause. If the cause cannot be found, the step can never be GREEN.
+- **Matches past fixes the right way.** The same error code can mean different things in different steps. History is grouped into: same step and same cause, same step but different cause (flagged as "fix may not apply"), and different step (flagged).
+- **Defines read-only diagnostic queries** for locks, tablespace/TEMP usage and parallel servers. Every query passes a SQL validator first (single `SELECT` only; no semicolons, comments, string literals, `FOR UPDATE`, DML/DDL, PL/SQL, `DBMS_`/`UTL_` calls, or database links). Which diagnostics may run is decided by the DBA in `yetkiler.json`; if the file is missing or broken, nothing runs. In this demo the SQL is never executed against Oracle: the results are synthetic rows labelled as demo data.
+- **Shows it all in a Streamlit panel**, bound to localhost only, with a permanent "synthetic data" banner.
+
+## Engineering notes
+
+- 105 automated tests, including 30 adversarial SQL inputs for the validator.
+- The agent code reads ODI table and column names from one module (`schema_map.py`).
+- Every Oracle table, view and column name is marked **unverified** in `docs/KOLON_KAYNAKLARI.md`. Nothing is presented as verified without a source.
+- The project code makes no AI or external service calls. (Streamlit's own internal behaviour was not audited; its usage statistics are turned off.)
+
+## Status and limitations
+
+This is a demo, not a production tool. All data is synthetic and it has never been connected to a real Oracle database. Automatic restart is planned, not built: today the colors are shown only as recommendations. The diagnostic queries are untested against real Oracle. The main remaining safeguard to design for production is a dedicated Oracle user with SELECT-only grants. Full list in the "Gizlilik ve yetki" section below.
+
+Built by Mehmet Eren Tosun. The idea comes from my data warehouse internship, where I worked hands-on with Oracle ODI 12c and PL/SQL: analysing mappings, investigating data quality issues, tracking failed loads in ODI Operator and covering overnight production monitoring shifts. Each rule in this project encodes a judgement that an on-call engineer otherwise makes by hand during an overnight failure. No code, schema or data from that internship is used; everything here is synthetic. Developed with Claude Code: I set the design, safety rules and test criteria, and reviewed every plan before implementation.
+
+*Türkçe açıklama aşağıda.*
+
 # ODI Hata Teşhis Ajanı (Demo)
 
-Oracle ODI 12c için hata teşhis ve otomatik müdahale ajanının demo sürümü. Ayrıntılar `CLAUDE.md`'de.
+Oracle ODI 12c için hata teşhis ve otomatik müdahale (planlanan, henüz yok) ajanının demo sürümü. Ayrıntılar `CLAUDE.md`'de.
 
 Hazır olanlar: **uydurma örnek veri**, hata sınıflama (KIRMIZI/TURUNCU/YESIL), geçmiş çözüm eşleştirme, teşhis sorgu iskeleti (yalnızca demo verisiyle) ve salt okunur panel. Gerçek Oracle bağlantısı ve otomatik restart henüz yazılmadı.
 
