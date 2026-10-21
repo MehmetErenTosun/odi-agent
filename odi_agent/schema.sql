@@ -59,3 +59,11 @@ CREATE TABLE DEMO_RESOLUTION (
     COZUM_TARIHI   TEXT,
     PRIMARY KEY (SESS_NO, NNO)
 );
+
+-- Teşhis şablonlarının uydurma sonuçları; her satır bir sonuç satırının JSON hâli.
+CREATE TABLE DEMO_DIAG_SONUC (
+    SABLON_ADI  TEXT,
+    SATIR_NO    INTEGER,
+    SATIR_JSON  TEXT,
+    PRIMARY KEY (SABLON_ADI, SATIR_NO)
+);

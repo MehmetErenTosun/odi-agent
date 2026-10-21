@@ -6,7 +6,8 @@ from pathlib import Path
 
 from odi_agent import seed
 
-TABLES = ["SNP_SESSION", "SNP_SESS_STEP", "SNP_STEP_LOG", "DEMO_STEP_INFO", "DEMO_RESOLUTION"]
+TABLES = ["SNP_SESSION", "SNP_SESS_STEP", "SNP_STEP_LOG", "DEMO_STEP_INFO", "DEMO_RESOLUTION",
+          "DEMO_DIAG_SONUC"]
 
 
 class SeedTest(unittest.TestCase):

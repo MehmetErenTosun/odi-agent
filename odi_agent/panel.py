@@ -1,4 +1,5 @@
-"""Salt okunur ODI hata paneli. Yalnızca gösterir; mantık classifier.py ve history.py'de.
+"""Salt okunur ODI hata paneli. Yalnızca gösterir; mantık classifier.py, history.py,
+diagnostics.py ve panel_data.py'de.
 
 Çalıştırma (proje kökünden): python -m streamlit run odi_agent/panel.py
 """
@@ -9,7 +10,8 @@ import streamlit as st
 
 from odi_agent.classifier import hatalari_sinifla, load_rules
 from odi_agent.db import connect_readonly
-from odi_agent.panel_data import hata_listesi, oturum_detayi, renk_filtrele
+from odi_agent.diagnostics import DemoCalistirici, SablonHatasi, sablonlari_yukle, yetkileri_yukle
+from odi_agent.panel_data import hata_listesi, oturum_detayi, renk_filtrele, teshis_sonuclari
 from odi_agent.seed import DEFAULT_DB_PATH
 
 RENKLER = ("KIRMIZI", "TURUNCU", "YESIL")
@@ -40,6 +42,32 @@ def _gecmis_grubu(baslik, satirlar):
                 st.caption(f"⚠️ {uyari}")
 
 
+def _teshis(sonuclar, hata):
+    st.markdown("### Teşhis")
+    st.warning("Demo verisi, gerçek sistemden alınmadı.")
+    if hata:
+        st.error(f"Teşhis şablonları yüklenemedi: {hata}")
+        return
+    if not sonuclar:
+        st.caption("Bu hata için teşhis şablonu yok.")
+        return
+    for s in sonuclar:
+        with st.container(border=True):
+            st.markdown(f"**{s['ad']}** · {s['durum']}")
+            st.caption(s["aciklama"])
+            for y in s["yetkiler"]:
+                isaret = "✅ tanımlı" if y["tanimli"] else "❌ tanımlı değil"
+                st.caption(f"Gereken yetki: `{y['ad']}` · {isaret}")
+            if s["neden"]:
+                st.caption(f"⚠️ {s['neden']}")
+            if s["satirlar"]:
+                st.dataframe(s["satirlar"], hide_index=True)
+            elif s["kaynak"]:
+                st.caption("Sonuç yok")
+            if s["kaynak"]:
+                st.caption(f"Kaynak: {s['kaynak']}")
+
+
 def _detay(detay):
     st.subheader(f"Oturum {detay['sess_no']} · {detay['adim']}")
     st.badge(detay["renk"], color=ROZET_RENGI[detay["renk"]])
@@ -54,9 +82,6 @@ def _detay(detay):
     st.markdown("### Geçmiş benzerler")
     for grup, baslik in GRUP_BASLIKLARI.items():
         _gecmis_grubu(baslik, detay["gecmis"][grup])
-
-    st.markdown("### Teşhis")
-    st.info("Teşhis (kilit, tablespace sorguları) henüz yazılmadı.")
 
 
 def _goster(conn, rules):
@@ -87,6 +112,13 @@ def _goster(conn, rules):
     siniflama = next(s for s in siniflamalar if s.sess_no == sess_no)
     with sag:
         _detay(oturum_detayi(conn, siniflama, rules))
+        try:
+            sablonlar = sablonlari_yukle()
+        except SablonHatasi as e:
+            _teshis([], str(e))
+        else:
+            _teshis(teshis_sonuclari(siniflama, sablonlar, yetkileri_yukle(),
+                                     DemoCalistirici(conn)), None)
 
 
 def main():

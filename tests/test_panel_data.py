@@ -2,13 +2,17 @@ import importlib.util
 import os
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 
 from odi_agent import seed
 from odi_agent.classifier import hatalari_sinifla, load_rules
 from odi_agent.db import connect_readonly
+from odi_agent.diagnostics import (DEMO_KAYNAK, DURUM_CALISTI, DURUM_YETKISIZ, YETKI_ENV,
+                                   DemoCalistirici, sablonlari_yukle, yetkileri_yukle)
 from odi_agent.history import SEBEP_BILINMIYOR_NOTU, FARKLI_SEBEP_UYARISI
-from odi_agent.panel_data import GRUPLAR, hata_listesi, oturum_detayi, renk_filtrele
+from odi_agent.panel_data import (GRUPLAR, hata_listesi, oturum_detayi, renk_filtrele,
+                                  teshis_sonuclari)
 from odi_agent.schema_map import Resolution
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent / "odi_agent"
@@ -125,6 +129,45 @@ class PanelDataTest(unittest.TestCase):
         for item in items:
             self.assertIn(SEBEP_BILINMIYOR_NOTU, item["uyarilar"])
 
+    # Teşhis
+
+    def teshis(self, s):
+        return teshis_sonuclari(s, sablonlari_yukle(), yetkileri_yukle(), DemoCalistirici(self.conn))
+
+    def test_teshis_wrapper_with_deadlock_cause(self):
+        s = next(x for x in self.open_sessions
+                 if x.adim == "MAP_FACT_SIPARIS_DEMO" and x.asil_sebep == "ORA-00060")
+        sonuclar = {r["ad"]: r for r in self.teshis(s)}
+        self.assertEqual(set(sonuclar), {"kilit_durumu", "paralel_sunucu_kullanimi"})
+
+        kilit = sonuclar["kilit_durumu"]
+        self.assertEqual(kilit["durum"], DURUM_CALISTI)
+        self.assertEqual(kilit["kaynak"], DEMO_KAYNAK)
+        self.assertEqual(kilit["satirlar"], seed.DIAG_RESULTS["kilit_durumu"])
+        self.assertEqual(kilit["yetkiler"], [{"ad": "SELECT ON V_$SESSION", "tanimli": True}])
+
+        px = sonuclar["paralel_sunucu_kullanimi"]
+        self.assertEqual(px["durum"], DURUM_YETKISIZ)
+        self.assertEqual(px["satirlar"], [])
+        self.assertIsNone(px["kaynak"])
+        self.assertEqual(px["yetkiler"], [{"ad": "SELECT ON V_$PX_SESSION", "tanimli": False}])
+
+    def test_teshis_none_for_unmatched_code(self):
+        s = next(x for x in self.siniflamalar if x.hata_kodu == "ORA-00942")
+        self.assertEqual(self.teshis(s), [])
+
+    def test_teshis_does_not_change_color(self):
+        for s in self.siniflamalar:
+            renk = s.renk
+            sonuclar = self.teshis(s)
+            self.assertEqual(oturum_detayi(self.conn, s, self.rules)["renk"], renk)
+            for r in sonuclar:
+                self.assertNotIn("renk", r)
+                self.assertTrue(r["yetkiler"])
+                self.assertIn("kaynak", r)
+        yeniden = {x.sess_no: x.renk for x in hatalari_sinifla(self.conn, self.rules)}
+        self.assertEqual(yeniden, {x.sess_no: x.renk for x in self.siniflamalar})
+
     # Panel yalnızca gösterir
 
     def test_panel_files_have_no_sql_writes_or_streamlit_in_data_module(self):
@@ -152,32 +195,62 @@ class PanelSmokeTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_panel(self, db_path):
-        from streamlit.testing.v1 import AppTest
-        previous = os.environ.get("ODI_DEMO_DB")
-        os.environ["ODI_DEMO_DB"] = str(db_path)
+    @contextmanager
+    def ortam(self, db_path, yetki_yolu=None):
+        """Ortam değişkenleri, sonraki at.run() çağrılarını da kapsayacak şekilde ayarlanır."""
+        degisenler = {"ODI_DEMO_DB": str(db_path), YETKI_ENV: yetki_yolu}
+        previous = {k: os.environ.get(k) for k in degisenler}
+        for k, v in degisenler.items():
+            if v is not None:
+                os.environ[k] = v
         try:
+            yield
+        finally:
+            for k, v in previous.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+    def run_panel(self, db_path, yetki_yolu=None):
+        from streamlit.testing.v1 import AppTest
+        with self.ortam(db_path, yetki_yolu):
             at = AppTest.from_file(str(PANEL_FILE), default_timeout=60)
             return at, at.run()
-        finally:
-            if previous is None:
-                os.environ.pop("ODI_DEMO_DB", None)
-            else:
-                os.environ["ODI_DEMO_DB"] = previous
 
-    def test_panel_opens_with_warning_table_and_placeholder(self):
+    @staticmethod
+    def teshis_basliklari(at):
+        return [m.value for m in at.markdown if m.value.startswith("**") and "_" in m.value]
+
+    def test_panel_opens_with_warnings_table_and_diagnosis(self):
         _, at = self.run_panel(self.db_path)
         self.assertFalse(at.exception)
         self.assertTrue(any("uydurmadır" in w.value for w in at.warning))
-        self.assertEqual(len(at.dataframe), 1)
+        self.assertTrue(any("gerçek sistemden alınmadı" in w.value for w in at.warning))
         self.assertEqual(len(at.dataframe[0].value), 25)
-        self.assertTrue(any("henüz yazılmadı" in i.value for i in at.info))
+        self.assertFalse(any("henüz yazılmadı" in i.value for i in at.info))
+        self.assertTrue(any(m.value == "### Teşhis" for m in at.markdown))
         self.assertTrue(any(s.value.startswith("Oturum ") for s in at.subheader))  # varsayılan seçim
+        # Varsayılan seçim: sebepsiz ORA-12801; demo yetki dosyasında paralel sorgu yetkisi kapalı.
+        self.assertEqual(self.teshis_basliklari(at),
+                         [f"**paralel_sunucu_kullanimi** · {DURUM_YETKISIZ}"])
+        self.assertTrue(any("❌ tanımlı değil" in c.value for c in at.caption))
+
+    def test_missing_permission_file_skips_all(self):
+        _, at = self.run_panel(self.db_path, yetki_yolu=str(Path(self.tmp.name) / "yok.json"))
+        self.assertFalse(at.exception)
+        self.assertTrue(any("gerçek sistemden alınmadı" in w.value for w in at.warning))
+        basliklar = self.teshis_basliklari(at)
+        self.assertTrue(basliklar)
+        for b in basliklar:
+            self.assertTrue(b.endswith(f"· {DURUM_YETKISIZ}"), b)
+        self.assertTrue(any("yok.json okunamadı" in c.value for c in at.caption))
 
     def test_color_filter_limits_table(self):
-        _, at = self.run_panel(self.db_path)
-        at.multiselect[0].set_value(["YESIL"])
-        at.run()
+        with self.ortam(self.db_path):
+            _, at = self.run_panel(self.db_path)
+            at.multiselect[0].set_value(["YESIL"])
+            at.run()
         self.assertFalse(at.exception)
         renkler = set(at.dataframe[0].value["Renk"])
         self.assertEqual(renkler, {"🟢 YESIL"})

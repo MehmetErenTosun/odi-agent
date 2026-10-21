@@ -8,6 +8,7 @@ Bu demo, ODI 12c work repository log tablolarını taklit eder. ODI repository'n
 
 - `doğrulandı (resmi)`: Oracle'ın resmi kaynağıyla karşılaştırıldı.
 - `doğrulanmadı (topluluk kaynağı)`: Resmi değil. "Dayanak" sütunu, hangi topluluk kaynağında görüldüğünü ya da hiç görülmediğini söyler.
+- `doğrulanmadı (model bilgisi)`: Hiçbir kaynakla karşılaştırılmadı; yalnızca Claude'un genel Oracle bilgisine dayanır. Oracle teşhis görünümleri bölümünde kullanılır.
 
 ## Kaynaklar
 
@@ -90,9 +91,77 @@ Durum kodları ([C]): `D` Done, `R` Running, `W` Waiting, `E` Error, `M` Warning
 
 - `SNP_SESS_TASK_LOG` (görev seviyesi log): Kapsam küçük kalsın diye eklenmedi. [W]'de kolon listesi var (TASK_STATUS, TASK_RC, TASK_MESS, ERROR_MESSAGE, NB_ROW...).
 
+## Oracle teşhis görünümleri
+
+`odi_agent/diagnostics.json`'daki teşhis şablonlarının kullandığı Oracle sözlük görünümleri, kolonları ve yetki adları.
+
+**Hiçbiri resmi Oracle dokümanıyla karşılaştırılmadı.** Bu adımda Oracle Database Reference açılıp kontrol edilmedi. Proje sahibi stajda ODI repository'sine ve Oracle sözlük görünümlerine hiç erişemedi (stajyer yetkisiyle mümkün değildi); yalnızca ODI Operator arayüzünden hata mesajlarına baktı. Bu yüzden hiçbir ad kullanıcı deneyimiyle doğrulanmış sayılmaz. Sorgular gerçek bir Oracle veritabanında hiç çalıştırılmadı.
+
+### V$SESSION (şablon: `kilit_durumu`)
+
+| Kolon | Durum | Dayanak |
+|---|---|---|
+| SID | doğrulanmadı (model bilgisi) | Model bilgisi |
+| SERIAL# | doğrulanmadı (model bilgisi) | Model bilgisi |
+| USERNAME | doğrulanmadı (model bilgisi) | Model bilgisi |
+| STATUS | doğrulanmadı (model bilgisi) | Model bilgisi |
+| EVENT | doğrulanmadı (model bilgisi) | Model bilgisi |
+| BLOCKING_SESSION | doğrulanmadı (model bilgisi) | Model bilgisi |
+| SQL_ID | doğrulanmadı (model bilgisi) | Model bilgisi |
+
+### DBA_TABLESPACE_USAGE_METRICS (şablon: `tablespace_doluluk`)
+
+| Kolon | Durum | Dayanak |
+|---|---|---|
+| TABLESPACE_NAME | doğrulanmadı (model bilgisi) | Model bilgisi |
+| USED_SPACE | doğrulanmadı (model bilgisi) | Model bilgisi; birimin blok olduğu da doğrulanmadı |
+| TABLESPACE_SIZE | doğrulanmadı (model bilgisi) | Model bilgisi; birimin blok olduğu da doğrulanmadı |
+| USED_PERCENT | doğrulanmadı (model bilgisi) | Model bilgisi |
+
+### DBA_TEMP_FREE_SPACE (şablon: `temp_doluluk`)
+
+| Kolon | Durum | Dayanak |
+|---|---|---|
+| TABLESPACE_NAME | doğrulanmadı (model bilgisi) | Model bilgisi |
+| TABLESPACE_SIZE | doğrulanmadı (model bilgisi) | Model bilgisi; birimin bayt olduğu da doğrulanmadı |
+| ALLOCATED_SPACE | doğrulanmadı (model bilgisi) | Model bilgisi |
+| FREE_SPACE | doğrulanmadı (model bilgisi) | Model bilgisi |
+
+### V$PX_SESSION (şablon: `paralel_sunucu_kullanimi`)
+
+| Kolon | Durum | Dayanak |
+|---|---|---|
+| QCSID | doğrulanmadı (model bilgisi) | Model bilgisi |
+| DEGREE | doğrulanmadı (model bilgisi) | Model bilgisi |
+| REQ_DEGREE | doğrulanmadı (model bilgisi) | Model bilgisi |
+
+Sorgudaki `COUNT(*)` koordinatör oturumu da sayıyor olabilir; doğrulanmadı.
+
+### Yetki adları (`yetkiler.json`)
+
+| Yetki | Durum | Dayanak |
+|---|---|---|
+| SELECT ON V_$SESSION | doğrulanmadı (model bilgisi) | `V$` adlarının `V_$` nesnelerine bakan public synonym olduğu ve yetkinin `V_$` üzerine verildiği model bilgisi |
+| SELECT ON DBA_TABLESPACE_USAGE_METRICS | doğrulanmadı (model bilgisi) | Model bilgisi |
+| SELECT ON DBA_TEMP_FREE_SPACE | doğrulanmadı (model bilgisi) | Model bilgisi |
+| SELECT ON V_$PX_SESSION | doğrulanmadı (model bilgisi) | Model bilgisi |
+
+`SELECT_CATALOG_ROLE` gibi bir rolün bunların hepsini kapsayıp kapsamadığı da doğrulanmadı.
+
+### Sınırlamalar
+
+1. **SQL doğrulayıcısı ikinci savunma hattıdır.** Yasak kelime listesi, başka bir şemadaki kullanıcı fonksiyonunun SELECT içinden çağrılmasını (yan etkili olabilir) yakalayamaz; yalnızca `DBMS_` ve `UTL_` paketlerini engeller. Asıl güvence: gerçek sistemde ajan Oracle'a, yalnızca teşhis görünümlerine SELECT yetkisi olan ve başka hiçbir yetkisi olmayan ayrı bir kullanıcıyla bağlanmalıdır.
+2. **Şablonlar veritabanının genel durumunu sorgular.** Hata veren ODI oturumunu veritabanı oturumuyla eşleştirmez (parametreler boş). Gerçek sistemde bu eşleştirme ayrıca tasarlanmalıdır.
+
+### Nasıl doğrulanır
+
+1. Oracle Database Reference'ta (docs.oracle.com) her görünümün sayfasını aç, kolonları bu listeyle karşılaştır, **ya da**
+2. Kişisel bir test veritabanında `DESCRIBE V$SESSION` gibi komutlar çalıştır. Şirket ortamını kullanma.
+3. Eşleşen satırın durumunu `doğrulandı (resmi)` yap. Farklıysa bu dosyayı, `diagnostics.json`'u ve `seed.py`'deki `DIAG_RESULTS`'u birlikte düzelt.
+
 ## Demo'ya özel tablolar (ODI'de yok)
 
-`DEMO_STEP_INFO` ve `DEMO_RESOLUTION` bu proje için uyduruldu, doğrulama gerekmez.
+`DEMO_STEP_INFO`, `DEMO_RESOLUTION` ve `DEMO_DIAG_SONUC` bu proje için uyduruldu, doğrulama gerekmez.
 
 ## Nasıl doğrulanır
 

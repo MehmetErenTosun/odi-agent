@@ -4,6 +4,7 @@
 Tüm isimler, mesajlar ve kişiler uydurmadır.
 """
 
+import json
 import random
 import sqlite3
 from datetime import datetime, timedelta
@@ -107,6 +108,29 @@ OPEN_ERRORS = [
 
 COZEN_KISILER = ["Ayşe Demo", "Mert Örnek", "Selin Test", "Kaan Deneme"]
 
+# Teşhis şablonlarının uydurma sonuçları (şablon adı -> satırlar). Gerçek sistemden alınmadı.
+DIAG_RESULTS = {
+    "kilit_durumu": [
+        {"BEKLEYEN_SID": 412, "BEKLEYEN_SERIAL": 30871, "BEKLEYEN_KULLANICI": "DEMO_ODI_RUN",
+         "BEKLEME_OLAYI": "enq: TX - row lock contention", "ENGELLEYEN_SID": 198,
+         "ENGELLEYEN_SERIAL": 5521, "ENGELLEYEN_KULLANICI": "DEMO_RAPOR_KULLANICI",
+         "ENGELLEYEN_DURUM": "INACTIVE", "ENGELLEYEN_SQL_ID": "demo0sqlid0001"},
+    ],
+    "tablespace_doluluk": [
+        {"TABLESPACE_NAME": "DEMO_DATA", "USED_SPACE": 1_497_000, "TABLESPACE_SIZE": 2_097_152,
+         "USED_PERCENT": 71.4},
+        {"TABLESPACE_NAME": "DEMO_INDEX", "USED_SPACE": 251_658, "TABLESPACE_SIZE": 524_288,
+         "USED_PERCENT": 48.0},
+    ],
+    "temp_doluluk": [
+        {"TABLESPACE_NAME": "TEMP", "TABLESPACE_SIZE": 34_359_738_368,
+         "ALLOCATED_SPACE": 33_336_328_192, "FREE_SPACE": 1_023_410_176},
+    ],
+    "paralel_sunucu_kullanimi": [
+        {"QCSID": 412, "SUNUCU_SAYISI": 9, "ISTENEN_DERECE": 16, "VERILEN_DERECE": 8},
+    ],
+}
+
 STEP_TO_SCENARIO = {step[0]: scen for scen, steps in SCENARIOS.items() for step in steps}
 
 
@@ -166,6 +190,11 @@ def generate(conn, seed=SEED):
         "INSERT INTO DEMO_STEP_INFO VALUES (?, ?, ?)",
         [(s[0], s[1], s[2]) for steps in SCENARIOS.values() for s in steps],
     )
+    conn.executemany(
+        "INSERT INTO DEMO_DIAG_SONUC VALUES (?, ?, ?)",
+        [(name, i, json.dumps(row, ensure_ascii=False))
+         for name, rows in DIAG_RESULTS.items() for i, row in enumerate(rows, start=1)],
+    )
 
     planned = []
     for day, scen, fail_step, code, cause, resolution in _plan_sessions(rng):
@@ -223,7 +252,7 @@ def build(db_path=DEFAULT_DB_PATH, seed=SEED):
     try:
         generate(conn, seed)
         tables = ["SNP_SESSION", "SNP_SESS_STEP", "SNP_STEP_LOG",
-                  "DEMO_STEP_INFO", "DEMO_RESOLUTION"]
+                  "DEMO_STEP_INFO", "DEMO_RESOLUTION", "DEMO_DIAG_SONUC"]
         return {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tables}
     finally:
         conn.close()

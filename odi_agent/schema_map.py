@@ -57,3 +57,10 @@ class Resolution:
     COLOR = "RENK"
     PERSON = "COZEN_KISI"
     DATE = "COZUM_TARIHI"
+
+
+class DiagResult:
+    TABLE = "DEMO_DIAG_SONUC"
+    TEMPLATE = "SABLON_ADI"
+    ROW_NO = "SATIR_NO"
+    ROW_JSON = "SATIR_JSON"

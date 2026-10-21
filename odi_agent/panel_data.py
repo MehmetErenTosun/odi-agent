@@ -7,6 +7,7 @@ sonuçlar gösterime uygun düz sözlüklere çevrilir.
 from dataclasses import asdict
 
 from odi_agent.classifier import hatalari_sinifla
+from odi_agent.diagnostics import teshis_yap, uygun_sablonlar
 from odi_agent.history import gecmis_benzerler
 
 GRUPLAR = ("ayni_adim", "farkli_sebep", "farkli_adim")
@@ -47,3 +48,17 @@ def oturum_detayi(conn, siniflama, rules):
         "max_deneme": siniflama.max_deneme,
         "gecmis": {grup: [asdict(item) for item in getattr(gecmis, grup)] for grup in GRUPLAR},
     }
+
+
+def teshis_sonuclari(siniflama, sablonlar, yetkiler, calistirici):
+    """Seçili hata için uygun teşhis şablonlarının sonuçları. Rengi değiştirmez."""
+    uygun = uygun_sablonlar(sablonlar, siniflama.hata_kodu, siniflama.asil_sebep)
+    return [{
+        "ad": s.ad,
+        "aciklama": s.aciklama,
+        "durum": r.durum,
+        "neden": r.neden,
+        "yetkiler": [{"ad": y, "tanimli": y in yetkiler.verilen} for y in s.gereken_yetki],
+        "satirlar": r.satirlar,
+        "kaynak": r.kaynak,
+    } for s, r in zip(uygun, teshis_yap(uygun, yetkiler, calistirici))]

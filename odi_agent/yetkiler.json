@@ -1,0 +1,8 @@
+{
+  "yetkiler": {
+    "SELECT ON V_$SESSION": true,
+    "SELECT ON DBA_TABLESPACE_USAGE_METRICS": true,
+    "SELECT ON DBA_TEMP_FREE_SPACE": true,
+    "SELECT ON V_$PX_SESSION": false
+  }
+}

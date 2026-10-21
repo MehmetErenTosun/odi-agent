@@ -1,0 +1,48 @@
+{
+  "sablonlar": [
+    {
+      "ad": "kilit_durumu",
+      "aciklama": "Bekleyen oturumlar ve onları engelleyen oturumlar.",
+      "tetikleyen_kodlar": ["ORA-00054", "ORA-00060"],
+      "sql": "SELECT w.SID AS BEKLEYEN_SID, w.SERIAL# AS BEKLEYEN_SERIAL, w.USERNAME AS BEKLEYEN_KULLANICI, w.EVENT AS BEKLEME_OLAYI, b.SID AS ENGELLEYEN_SID, b.SERIAL# AS ENGELLEYEN_SERIAL, b.USERNAME AS ENGELLEYEN_KULLANICI, b.STATUS AS ENGELLEYEN_DURUM, b.SQL_ID AS ENGELLEYEN_SQL_ID FROM V$SESSION w JOIN V$SESSION b ON b.SID = w.BLOCKING_SESSION WHERE w.BLOCKING_SESSION IS NOT NULL",
+      "gorunumler": {
+        "V$SESSION": ["SID", "SERIAL#", "USERNAME", "STATUS", "EVENT", "BLOCKING_SESSION", "SQL_ID"]
+      },
+      "gereken_yetki": ["SELECT ON V_$SESSION"],
+      "parametreler": []
+    },
+    {
+      "ad": "tablespace_doluluk",
+      "aciklama": "Tablespace doluluk oranları (birim: blok), en dolu üstte.",
+      "tetikleyen_kodlar": ["ORA-01652"],
+      "sql": "SELECT TABLESPACE_NAME, USED_SPACE, TABLESPACE_SIZE, USED_PERCENT FROM DBA_TABLESPACE_USAGE_METRICS ORDER BY USED_PERCENT DESC",
+      "gorunumler": {
+        "DBA_TABLESPACE_USAGE_METRICS": ["TABLESPACE_NAME", "USED_SPACE", "TABLESPACE_SIZE", "USED_PERCENT"]
+      },
+      "gereken_yetki": ["SELECT ON DBA_TABLESPACE_USAGE_METRICS"],
+      "parametreler": []
+    },
+    {
+      "ad": "temp_doluluk",
+      "aciklama": "TEMP tablespace boyutu, ayrılmış ve boş alan.",
+      "tetikleyen_kodlar": ["ORA-01652"],
+      "sql": "SELECT TABLESPACE_NAME, TABLESPACE_SIZE, ALLOCATED_SPACE, FREE_SPACE FROM DBA_TEMP_FREE_SPACE",
+      "gorunumler": {
+        "DBA_TEMP_FREE_SPACE": ["TABLESPACE_NAME", "TABLESPACE_SIZE", "ALLOCATED_SPACE", "FREE_SPACE"]
+      },
+      "gereken_yetki": ["SELECT ON DBA_TEMP_FREE_SPACE"],
+      "parametreler": []
+    },
+    {
+      "ad": "paralel_sunucu_kullanimi",
+      "aciklama": "Koordinatör oturum başına paralel sunucu sayısı, istenen ve verilen paralellik derecesi.",
+      "tetikleyen_kodlar": ["ORA-12801"],
+      "sql": "SELECT QCSID, COUNT(*) AS SUNUCU_SAYISI, MAX(REQ_DEGREE) AS ISTENEN_DERECE, MAX(DEGREE) AS VERILEN_DERECE FROM V$PX_SESSION GROUP BY QCSID",
+      "gorunumler": {
+        "V$PX_SESSION": ["QCSID", "DEGREE", "REQ_DEGREE"]
+      },
+      "gereken_yetki": ["SELECT ON V_$PX_SESSION"],
+      "parametreler": []
+    }
+  ]
+}
