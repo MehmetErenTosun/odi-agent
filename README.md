@@ -2,6 +2,24 @@
 
 When an overnight ETL load fails in an Oracle Data Integrator (ODI) 12c data warehouse, someone on call has to answer three questions fast: *Is it safe to just restart? Has this happened before, and how was it fixed? What is the database actually doing right now?* This project is a working demo of an agent that helps answer those questions, on synthetic data.
 
+## Quick start
+
+Requires Python 3.10+. Only the panel needs an outside package (Streamlit); the data, classification and tests run on the standard library.
+
+```bash
+git clone https://github.com/MehmetErenTosun/odi-agent.git
+cd odi-agent
+pip install -r requirements.txt
+python -m odi_agent.seed                    # creates data/odi_demo.db
+python -m streamlit run odi_agent/panel.py  # run from the project root
+```
+
+The panel then opens in your browser at http://127.0.0.1:8501. To run the tests:
+
+```bash
+python -m unittest
+```
+
 ## What it does
 
 - **Classifies every failed step** as 🔴 RED (do not touch), 🟠 ORANGE (needs human approval) or 🟢 GREEN (safe to retry, with a limited number of retries). Rules live in a config file (`rules.json`), not in code, and every result comes with the chain of rules that produced it.
