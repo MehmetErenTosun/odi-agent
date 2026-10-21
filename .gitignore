@@ -15,10 +15,14 @@ htmlcov/
 build/
 dist/
 
-# Üretilen demo veritabanı
-data/*.db
+# Üretilen demo veritabanı ve data/ içeriği
+data/*
+!data/.gitkeep
 
 # Sanal ortam (virtual environment)
 .venv/
 venv/
 env/
+
+# Kişisel Claude Code ayarları
+.claude/settings.local.json
