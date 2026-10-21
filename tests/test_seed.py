@@ -1,3 +1,4 @@
+import re
 import sqlite3
 import tempfile
 import unittest
@@ -82,6 +83,21 @@ class SeedTest(unittest.TestCase):
             self.assertTrue(person)
             self.assertTrue(fixed_at)
             self.assertGreaterEqual(fixed_at, sess_end)  # aynı metin biçimi, sıralama tutarlı
+
+    def test_wrapper_messages_cover_all_cause_types(self):
+        messages = [r[0] for r in self.query(
+            "SELECT STEP_MESS FROM SNP_STEP_LOG WHERE STEP_MESS LIKE 'ORA-12801%'")]
+        causes = {m.split("\n")[1].split(":")[0] if "\n" in m else None for m in messages}
+        self.assertIn("ORA-00060", causes)  # geçici: restart çözer
+        self.assertIn("ORA-01652", causes)  # kalıcı: restart çözmez
+        self.assertIn(None, causes)         # asıl sebep satırı yok
+
+    def test_no_invented_error_codes(self):
+        # Mesajlardaki her ORA kodu seed.py'deki bilinen Oracle mesajlarından gelmeli.
+        known = set(seed.ORA_MESSAGES)
+        for (mess,) in self.query("SELECT STEP_MESS FROM SNP_STEP_LOG WHERE STEP_MESS IS NOT NULL"):
+            for code in re.findall(r"ORA-\d{5}", mess):
+                self.assertIn(code, known)
 
     def test_identifiers_are_ascii(self):
         tables = [r[0] for r in self.query("SELECT name FROM sqlite_master WHERE type = 'table'")]

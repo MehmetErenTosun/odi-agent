@@ -63,38 +63,46 @@ ORA_MESSAGES = {
     "ORA-00942": "ORA-00942: table or view does not exist",
     "ORA-12801": "ORA-12801: error signaled in parallel query server P003",
     "ORA-00054": "ORA-00054: resource busy and acquire with NOWAIT specified or timeout expired",
+    "ORA-00060": "ORA-00060: deadlock detected while waiting for resource",
 }
 
-# Geçmiş olaylar: (adım, hata kodu, renk, çözüm notu). Her biri iki kez yaşanmış.
+# Geçmiş olaylar: (adım, hata kodu, asıl sebep, renk, çözüm notu). Her biri iki kez yaşanmış.
+# ORA-12801 sarmalayıcıdır; asıl sebep mesajın ikinci satırındadır (None: ikinci satır yok).
 # ORA-12801 ve ORA-00054 bilerek farklı adımlarda farklı renk ve çözümle kayıtlı:
 # ajanın değeri, aynı hata koduna bağlama göre farklı cevap verebilmesi.
 INCIDENTS = [
-    ("MAP_AGG_SIPARIS_GUNLUK_DEMO", "ORA-12801", "YESIL",
-     "Paralellik derecesi 8'den 4'e düşürüldü, adım otomatik yeniden çalıştırıldı."),
-    ("MAP_FACT_SIPARIS_DEMO", "ORA-12801", "TURUNCU",
+    ("MAP_AGG_SIPARIS_GUNLUK_DEMO", "ORA-12801", "ORA-00060", "YESIL",
+     "Deadlock geçiciydi, adım otomatik yeniden çalıştırıldı."),
+    ("MAP_FACT_SIPARIS_DEMO", "ORA-12801", "ORA-00060", "TURUNCU",
      "Incremental append: hedefte o yükleme tarihine ait satırlar sayıldı, çift yükleme "
      "olmadığı görüldü; onay alınıp yeniden çalıştırıldı."),
-    ("MAP_DIM_MUSTERI_DEMO", "ORA-00054", "YESIL",
+    ("MAP_FACT_SIPARIS_DEMO", "ORA-12801", "ORA-01652", "TURUNCU",
+     "TEMP yetersizdi; DBA alan ekledi, çift yükleme kontrolü sonrası onayla yeniden çalıştırıldı."),
+    ("MAP_AGG_STOK_DEMO", "ORA-12801", "ORA-01652", "TURUNCU",
+     "Asıl sebep TEMP alanı yetersizliğiydi, restart tek başına çözmez; DBA alan ekledi, "
+     "onay sonrası yeniden çalıştırıldı."),
+    ("MAP_DIM_MUSTERI_DEMO", "ORA-00054", None, "YESIL",
      "Kilidi tutan rapor sorgusu bitince adım otomatik yeniden denendi."),
-    ("MAP_FACT_STOK_HAREKET_DEMO", "ORA-00054", "KIRMIZI",
+    ("MAP_FACT_STOK_HAREKET_DEMO", "ORA-00054", None, "KIRMIZI",
      "Kilit başka ekibin batch işindeydi; ekip ile koordine edildi, ajan müdahale etmedi."),
-    ("MAP_STG_STOK_DEMO", "ORA-01652", "TURUNCU",
+    ("MAP_STG_STOK_DEMO", "ORA-01652", None, "TURUNCU",
      "DBA'den TEMP tablespace büyütmesi istendi, onay sonrası yeniden çalıştırıldı."),
-    ("MAP_STG_ODEME_DEMO", "ORA-12541", "YESIL",
+    ("MAP_STG_ODEME_DEMO", "ORA-12541", None, "YESIL",
      "Kaynak veritabanının listener'ı birkaç dakika sonra açıldı, yeniden deneme başarılı."),
-    ("MAP_FACT_ODEME_DEMO", "ORA-00001", "KIRMIZI",
+    ("MAP_FACT_ODEME_DEMO", "ORA-00001", None, "KIRMIZI",
      "Kaynakta mükerrer ödeme kaydı vardı; iş birimine bildirildi, veri düzeltilmeden yükleme yapılmadı."),
-    ("MAP_FACT_STOK_SNAPSHOT_DEMO", "ORA-01555", "TURUNCU",
+    ("MAP_FACT_STOK_SNAPSHOT_DEMO", "ORA-01555", None, "TURUNCU",
      "Kaynak tablo yoğun güncelleniyordu; çalışma saati kaydırılıp onayla yeniden çalıştırıldı."),
-    ("MAP_DIM_MAGAZA_DEMO", "ORA-00942", "KIRMIZI",
+    ("MAP_DIM_MAGAZA_DEMO", "ORA-00942", None, "KIRMIZI",
      "Kaynak tablonun adı değişmişti; mapping geliştirici tarafından düzeltilmeli, ajan dokunmaz."),
 ]
 OCCURRENCES_PER_INCIDENT = 2
 
-# Son gün açık (henüz çözülmemiş) kalan hatalar: ajanın teşhis edeceği vakalar.
+# Son gün açık (henüz çözülmemiş) kalan hatalar: (adım, hata kodu, asıl sebep).
 OPEN_ERRORS = [
-    ("MAP_FACT_SIPARIS_DEMO", "ORA-12801"),
-    ("MAP_DIM_MUSTERI_DEMO", "ORA-00054"),
+    ("MAP_FACT_SIPARIS_DEMO", "ORA-12801", "ORA-00060"),
+    ("MAP_DIM_MUSTERI_DEMO", "ORA-00054", None),
+    ("MAP_AGG_ODEME_DEMO", "ORA-12801", None),  # asıl sebep satırı yok
 ]
 
 COZEN_KISILER = ["Ayşe Demo", "Mert Örnek", "Selin Test", "Kaan Deneme"]
@@ -104,6 +112,11 @@ STEP_TO_SCENARIO = {step[0]: scen for scen, steps in SCENARIOS.items() for step 
 
 def _fmt(dt):
     return dt.strftime(TIME_FMT)
+
+
+def _message(code, cause):
+    lines = [ORA_MESSAGES[code]] + ([ORA_MESSAGES[cause]] if cause else [])
+    return "\n".join(lines)
 
 
 def create_db(db_path):
@@ -117,7 +130,7 @@ def create_db(db_path):
 
 
 def _plan_sessions(rng):
-    """(gün, senaryo, hatalı adım, hata kodu, çözüm) listesi döner."""
+    """(gün, senaryo, hatalı adım, hata kodu, asıl sebep, çözüm) listesi döner."""
     used = set()
     planned = []
 
@@ -128,19 +141,19 @@ def _plan_sessions(rng):
         return day
 
     last = DAYS - 1
-    for step, code in OPEN_ERRORS:
+    for step, code, cause in OPEN_ERRORS:
         scen = STEP_TO_SCENARIO[step]
-        planned.append((take_slot(scen, [last]), scen, step, code, None))
+        planned.append((take_slot(scen, [last]), scen, step, code, cause, None))
 
-    for step, code, renk, note in INCIDENTS:
+    for step, code, cause, renk, note in INCIDENTS:
         scen = STEP_TO_SCENARIO[step]
         for _ in range(OCCURRENCES_PER_INCIDENT):
             day = take_slot(scen, range(last))
-            planned.append((day, scen, step, code, (renk, note)))
+            planned.append((day, scen, step, code, cause, (renk, note)))
 
     while len(planned) < TOTAL_SESSIONS:
         scen = rng.choice(list(SCENARIOS))
-        planned.append((take_slot(scen, range(DAYS)), scen, None, None, None))
+        planned.append((take_slot(scen, range(DAYS)), scen, None, None, None, None))
     return planned
 
 
@@ -155,13 +168,13 @@ def generate(conn, seed=SEED):
     )
 
     planned = []
-    for day, scen, fail_step, code, resolution in _plan_sessions(rng):
+    for day, scen, fail_step, code, cause, resolution in _plan_sessions(rng):
         start = first_day + timedelta(days=day, hours=scen_hour[scen],
                                       minutes=rng.randint(0, 20))
-        planned.append((start, scen, fail_step, code, resolution))
+        planned.append((start, scen, fail_step, code, cause, resolution))
     planned.sort(key=lambda p: p[0])
 
-    for sess_no, (start, scen, fail_step, code, resolution) in enumerate(planned, start=1001):
+    for sess_no, (start, scen, fail_step, code, cause, resolution) in enumerate(planned, start=1001):
         t = start
         status, rc, mess = "D", None, None
         for nno, (step, load_type, _target, rows) in enumerate(SCENARIOS[scen], start=1):
@@ -171,7 +184,7 @@ def generate(conn, seed=SEED):
             dur = rng.randint(20, 600)
             end = t + timedelta(seconds=dur)
             if step == fail_step:
-                status, rc, mess = "E", code.split("-")[1], ORA_MESSAGES[code]
+                status, rc, mess = "E", code.split("-")[1], _message(code, cause)
                 counts = (0, 0, 0, 0, 0)
                 if resolution:
                     renk, note = resolution

@@ -1,0 +1,28 @@
+{
+  "varsayilan_renk": "KIRMIZI",
+  "yesil_max_deneme": 3,
+  "sarmalayici_kodlar": ["ORA-12801"],
+  "yoksayilan_kodlar": ["ORA-06512"],
+  "sebep_bulunamazsa_renk": "TURUNCU",
+  "hata_kodlari": {
+    "ORA-00060": "YESIL",
+    "ORA-00054": "YESIL",
+    "ORA-12541": "YESIL",
+    "ORA-01652": "TURUNCU",
+    "ORA-01555": "TURUNCU",
+    "ORA-00001": "KIRMIZI",
+    "ORA-00942": "KIRMIZI"
+  },
+  "adim_istisnalari": [
+    {
+      "adim": "MAP_FACT_STOK_HAREKET_DEMO",
+      "hata_kodu": "ORA-00054",
+      "renk": "KIRMIZI",
+      "neden": "Kilit başka ekibin batch işinde; koordinasyon gerekir"
+    }
+  ],
+  "yukleme_tipi_tavani": {
+    "INCREMENTAL_APPEND": "TURUNCU"
+  },
+  "bilinmeyen_yukleme_tipi_tavani": "TURUNCU"
+}

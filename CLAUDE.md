@@ -25,6 +25,11 @@ CV ve iş görüşmesi için çalışan bir demo. Kapsam küçük tutulacak.
 - Tablo ve kolon adlarında Türkçe karakter kullanılmaz (ör. `COZUM_NOTU`, `ÇÖZÜM_NOTU` değil).
 - ODI repository tablo/kolon adları resmi kaynakla doğrulanmadıysa uydurulmaz; `docs/KOLON_KAYNAKLARI.md`'de "doğrulanmadı" olarak işaretlenir.
 
+## Bilinen sınırlamalar
+
+- **Sarmalayıcı (wrapper) hata kodları:** ORA-12801 gibi kodlar asıl hatayı sarar. Sınıflayıcı (`odi_agent/classifier.py`), `rules.json`'daki `sarmalayici_kodlar` listesinde olan bir kod görünce rengi mesajdaki asıl sebep koduna göre belirler. Asıl sebep yoksa sonuç YESIL olamaz. **Listede olmayan bir sarmalayıcı kod gelirse sınıflayıcı onu asıl hata sanar.** Yeni sarmalayıcı kodlar listeye eklenmeli. Aynı şekilde, `yoksayilan_kodlar`'da olmayan bir bilgi kodu (ORA-06512 gibi yalnızca satır bilgisi veren) gelirse yanlışlıkla asıl sebep sanılabilir.
+- **Geçmiş kaydın asıl sebebi log'dan okunuyor:** `odi_agent/history.py`, geçmiş çözümün asıl sebebini `SNP_STEP_LOG` mesajından okur. Log temizlenirse (purge) sebep görülemez ve kayıt `farkli_sebep` grubuna düşer.
+
 ## Dil ve İletişim
 
 - Programlama dili: Python.
