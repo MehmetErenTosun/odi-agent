@@ -180,6 +180,14 @@ class PanelDataTest(unittest.TestCase):
         self.assertIn("connect_readonly", panel)
 
 
+class StreamlitConfigTest(unittest.TestCase):
+    def test_panel_only_listens_on_localhost_and_no_usage_stats(self):
+        # Düz metin kontrolü (tomllib'e bağlı değil): ayar verilmezse panel ağdaki diğer cihazlara açılır.
+        config = (PACKAGE_DIR.parent / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+        self.assertRegex(config, r'(?m)^address\s*=\s*"127\.0\.0\.1"\s*$')
+        self.assertRegex(config, r"(?m)^gatherUsageStats\s*=\s*false\s*$")
+
+
 @unittest.skipUnless(HAS_STREAMLIT, "streamlit kurulu değil")
 class PanelSmokeTest(unittest.TestCase):
     """Streamlit'in AppTest aracıyla panelin açıldığını doğrular. Satıra tıklayarak seçim
