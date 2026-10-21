@@ -2,7 +2,7 @@
 
 Oracle ODI 12c için hata teşhis ve otomatik müdahale ajanının demo sürümü. Ayrıntılar `CLAUDE.md`'de.
 
-Şu an yalnızca **uydurma örnek veri** hazır. Ajan mantığı henüz yazılmadı.
+Hazır olanlar: **uydurma örnek veri**, hata sınıflama (KIRMIZI/TURUNCU/YESIL), geçmiş çözüm eşleştirme ve salt okunur panel. Teşhis sorguları ve otomatik restart henüz yazılmadı.
 
 ## Örnek veri
 
@@ -18,9 +18,13 @@ Tüm isimler, mesajlar ve kişiler uydurmadır.
 
 ## Çalıştırma
 
-Python 3.10+ yeterli; dış paket yok.
+Python 3.10+ gerekir. Yalnızca panel dış paket (Streamlit) kullanır; veri, sınıflama ve testler standart kütüphane ile çalışır.
 
 ```
-python -m odi_agent.seed     # data/odi_demo.db oluşturur
-python -m unittest -v        # veri testleri
+pip install -r requirements.txt            # yalnızca panel için
+python -m odi_agent.seed                   # data/odi_demo.db oluşturur
+python -m unittest -v                      # testler
+python -m streamlit run odi_agent/panel.py # paneli açar (proje kökünden)
 ```
+
+Panel salt okunurdur: veritabanına yazmaz, yalnızca `classifier.py` ve `history.py` sonuçlarını gösterir. Paneldeki teşhis bölümü henüz yazılmadı. Komutu `streamlit run` yerine `python -m streamlit run` olarak çalıştırmak gerekir; böylece proje kökü import yoluna eklenir.
