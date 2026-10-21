@@ -22,6 +22,8 @@ When an overnight ETL load fails in an Oracle Data Integrator (ODI) 12c data war
 
 This is a demo, not a production tool. All data is synthetic and it has never been connected to a real Oracle database. Automatic restart is planned, not built: today the colors are shown only as recommendations. The diagnostic queries are untested against real Oracle. The main remaining safeguard to design for production is a dedicated Oracle user with SELECT-only grants. Full list in the "Gizlilik ve yetki" section below.
 
+## Background
+
 Built by Mehmet Eren Tosun. The idea comes from my data warehouse internship, where I worked hands-on with Oracle ODI 12c and PL/SQL: analysing mappings, investigating data quality issues, tracking failed loads in ODI Operator and covering overnight production monitoring shifts. Each rule in this project encodes a judgement that an on-call engineer otherwise makes by hand during an overnight failure. No code, schema or data from that internship is used; everything here is synthetic. Developed with Claude Code: I set the design, safety rules and test criteria, and reviewed every plan before implementation.
 
 *Türkçe açıklama aşağıda.*
